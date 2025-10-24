@@ -1,0 +1,328 @@
+#!/usr/bin/env python3
+"""
+Plot-Messdaten: Visualisierung von CSV-Messdaten aus dem measurements/ Verzeichnis.
+
+Beispiele:
+  - Einfacher Plot (Name ohne Endung):
+      python plot_measurements.py sample
+  - Mit Titel und Beschriftungen:
+      python plot_measurements.py sinus --title "Sinus 1 Hz" --xlabel "Zeit [s]" --ylabel "Amplitude"
+  - Mehrere Dateien überlagert:
+      python plot_measurements.py sinus cosinus --title "Vergleich"
+  - Als PNG speichern statt anzeigen:
+      python plot_measurements.py data --save plot.png
+  - Mit Grid und Marker:
+      python plot_measurements.py sample --marker o
+"""
+from __future__ import annotations
+
+import argparse
+import csv
+import os
+import sys
+from datetime import datetime
+from pathlib import Path
+from typing import List, Tuple, Optional
+
+try:
+    import matplotlib.pyplot as plt
+    import matplotlib.dates as mdates
+except ImportError:
+    print("Fehler: matplotlib ist nicht installiert.")
+    print("Bitte installieren mit: pip install matplotlib")
+    sys.exit(1)
+
+
+def detect_csv_format(file_path: str, delimiter: str = ",") -> str:
+    """
+    Erkennt das CSV-Format anhand der Spaltenüberschriften.
+    Rückgabe: 'relative', 'iso', 'epoch', 'none'
+    """
+    with open(file_path, "r", encoding="utf-8") as f:
+        reader = csv.reader(f, delimiter=delimiter)
+        header = next(reader, None)
+        
+        if header is None:
+            return "none"  # Keine Kopfzeile
+        
+        header_lower = [col.lower() for col in header]
+        
+        if "timestamp_iso" in header_lower:
+            return "iso"
+        elif "timestamp_epoch" in header_lower:
+            return "epoch"
+        elif "t" in header_lower:
+            return "relative"
+        elif len(header) == 2 and "index" in header_lower and "value" in header_lower:
+            return "none"
+        else:
+            # Fallback: versuche zu raten
+            if len(header) >= 3:
+                return "relative"
+            else:
+                return "none"
+
+
+def read_csv_data(file_path: str, delimiter: str = ",") -> Tuple[List[float], List[float], str]:
+    """
+    Liest CSV-Daten und gibt (x_values, y_values, format) zurück.
+    x_values: Zeit oder Index
+    y_values: Messwerte
+    format: 'relative', 'iso', 'epoch', 'none'
+    """
+    csv_format = detect_csv_format(file_path, delimiter)
+    
+    x_values = []
+    y_values = []
+    
+    with open(file_path, "r", encoding="utf-8") as f:
+        reader = csv.reader(f, delimiter=delimiter)
+        header = next(reader, None)
+        
+        # Wenn keine Kopfzeile oder Format 'none', verwende Index als x
+        if header is None or csv_format == "none":
+            # Zurücksetzen wenn header gelesen wurde
+            f.seek(0)
+            if header is not None and "index" in [h.lower() for h in header]:
+                next(reader)  # Header überspringen
+            
+            for idx, row in enumerate(reader):
+                try:
+                    if len(row) >= 2:
+                        x_values.append(float(row[0]))  # index
+                        y_values.append(float(row[-1]))  # letzter Wert ist value
+                    elif len(row) == 1:
+                        x_values.append(idx)
+                        y_values.append(float(row[0]))
+                except (ValueError, IndexError):
+                    continue
+        
+        elif csv_format == "relative":
+            for row in reader:
+                try:
+                    if len(row) >= 3:
+                        x_values.append(float(row[1]))  # t (Zeit in Sekunden)
+                        y_values.append(float(row[2]))  # value
+                except (ValueError, IndexError):
+                    continue
+        
+        elif csv_format == "iso":
+            for row in reader:
+                try:
+                    if len(row) >= 3:
+                        # ISO-Zeitstempel in datetime konvertieren
+                        ts_str = row[1]
+                        dt = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+                        x_values.append(dt)
+                        y_values.append(float(row[2]))
+                except (ValueError, IndexError):
+                    continue
+        
+        elif csv_format == "epoch":
+            for row in reader:
+                try:
+                    if len(row) >= 3:
+                        # Epoch zu datetime konvertieren
+                        epoch = float(row[1])
+                        dt = datetime.fromtimestamp(epoch)
+                        x_values.append(dt)
+                        y_values.append(float(row[2]))
+                except (ValueError, IndexError):
+                    continue
+    
+    return x_values, y_values, csv_format
+
+
+def plot_data(
+    files: List[str],
+    title: Optional[str] = None,
+    xlabel: Optional[str] = None,
+    ylabel: Optional[str] = None,
+    grid: bool = True,
+    marker: Optional[str] = None,
+    linestyle: str = "-",
+    figsize: Tuple[int, int] = (12, 6),
+    save_path: Optional[str] = None,
+    delimiter: str = ",",
+) -> None:
+    """
+    Plottet Messdaten aus einer oder mehreren CSV-Dateien.
+    """
+    fig, ax = plt.subplots(figsize=figsize)
+    
+    has_datetime = False
+    
+    for file_path in files:
+        if not os.path.exists(file_path):
+            print(f"Warnung: Datei '{file_path}' nicht gefunden, überspringe...")
+            continue
+        
+        try:
+            x_values, y_values, csv_format = read_csv_data(file_path, delimiter)
+            
+            if len(x_values) == 0:
+                print(f"Warnung: Keine Daten in '{file_path}' gefunden.")
+                continue
+            
+            # Label aus Dateiname erstellen
+            label = Path(file_path).stem
+            
+            # Plot-Optionen
+            plot_kwargs = {
+                "label": label,
+                "linestyle": linestyle,
+            }
+            if marker:
+                plot_kwargs["marker"] = marker
+                plot_kwargs["markersize"] = 4
+            
+            # Prüfen ob datetime-Objekte
+            if csv_format in ("iso", "epoch"):
+                has_datetime = True
+                ax.plot(x_values, y_values, **plot_kwargs)
+            else:
+                ax.plot(x_values, y_values, **plot_kwargs)
+        
+        except Exception as e:
+            print(f"Fehler beim Lesen von '{file_path}': {e}")
+            continue
+    
+    # Achsenbeschriftungen
+    if xlabel:
+        ax.set_xlabel(xlabel, fontsize=12)
+    else:
+        # Auto-Label basierend auf Format
+        if has_datetime:
+            ax.set_xlabel("Zeit", fontsize=12)
+        else:
+            ax.set_xlabel("Zeit [s]", fontsize=12)
+    
+    if ylabel:
+        ax.set_ylabel(ylabel, fontsize=12)
+    else:
+        ax.set_ylabel("Wert", fontsize=12)
+    
+    # Titel
+    if title:
+        ax.set_title(title, fontsize=14, fontweight="bold")
+    else:
+        if len(files) == 1:
+            ax.set_title(f"Messdaten: {Path(files[0]).name}", fontsize=14)
+        else:
+            ax.set_title("Messdaten-Vergleich", fontsize=14)
+    
+    # Grid
+    if grid:
+        ax.grid(True, alpha=0.3, linestyle="--")
+    
+    # Legende wenn mehrere Dateien
+    if len(files) > 1:
+        ax.legend(loc="best", framealpha=0.9)
+    
+    # Datetime-Formatierung für X-Achse
+    if has_datetime:
+        ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M:%S"))
+        fig.autofmt_xdate()  # Automatische Drehung der Zeitstempel
+    
+    plt.tight_layout()
+    
+    # Speichern oder anzeigen
+    if save_path:
+        # Sicherstellen, dass Ausgabeverzeichnis existiert
+        import os
+        save_dir = os.path.dirname(save_path)
+        if save_dir and not os.path.exists(save_dir):
+            os.makedirs(save_dir, exist_ok=True)
+        
+        plt.savefig(save_path, dpi=300, bbox_inches="tight")
+        print(f"Plot gespeichert: {save_path}")
+    else:
+        plt.show()
+
+
+def parse_args() -> argparse.Namespace:
+    p = argparse.ArgumentParser(
+        description="Plottet Messdaten aus CSV-Dateien im measurements/ Verzeichnis.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    p.add_argument(
+        "files",
+        nargs="+",
+        help="Dateiname(n) ohne Verzeichnis und Endung (z.B. 'sinus' oder 'data1 data2')",
+    )
+    p.add_argument("--title", help="Titel des Plots")
+    p.add_argument("--xlabel", help="Beschriftung der X-Achse")
+    p.add_argument("--ylabel", help="Beschriftung der Y-Achse")
+    p.add_argument("--grid", action="store_true", default=True, help="Gitter anzeigen")
+    p.add_argument("--no-grid", action="store_true", help="Gitter ausblenden")
+    p.add_argument("--marker", help="Marker-Stil (z.B. 'o', 's', '^', 'x')")
+    p.add_argument("--linestyle", default="-", help="Linien-Stil (z.B. '-', '--', '-.', ':')")
+    p.add_argument("--figsize", nargs=2, type=int, default=[12, 6], help="Größe der Figur (Breite Höhe)")
+    p.add_argument("--save", dest="save_path", help="Dateiname für Plot (ohne Pfad, wird in plots/ gespeichert). Ohne --save wird Plot angezeigt.")
+    p.add_argument("--delimiter", default=",", help="CSV-Trennzeichen")
+    return p.parse_args()
+
+
+def main() -> None:
+    args = parse_args()
+    
+    # Grid-Behandlung
+    grid = args.grid and not args.no_grid
+    
+    # Pfade zu Dateien verarbeiten
+    # Namen in vollständige Pfade umwandeln
+    files = []
+    for name in args.files:
+        # Wenn bereits vollständiger Pfad, verwende ihn direkt
+        if os.path.exists(name):
+            files.append(name)
+            continue
+        
+        # Sonst: Name ohne Endung -> measurements/<name>.csv
+        # Endung entfernen falls vorhanden
+        if name.endswith('.csv'):
+            base_name = name[:-4]
+        else:
+            base_name = name
+        
+        # Pfad erstellen
+        file_path = os.path.join("measurements", f"{base_name}.csv")
+        
+        if not os.path.exists(file_path):
+            print(f"Warnung: Datei '{file_path}' nicht gefunden!")
+            sys.exit(1)
+        
+        files.append(file_path)
+    
+    # Speicherpfad verarbeiten
+    if args.save_path:
+        # Wenn nur Dateiname, in plots/ speichern
+        if not os.path.dirname(args.save_path):
+            save_path = os.path.join("plots", args.save_path)
+        else:
+            save_path = args.save_path
+    else:
+        save_path = None
+    
+    try:
+        plot_data(
+            files=files,
+            title=args.title,
+            xlabel=args.xlabel,
+            ylabel=args.ylabel,
+            grid=grid,
+            marker=args.marker,
+            linestyle=args.linestyle,
+            figsize=tuple(args.figsize),
+            save_path=save_path,
+            delimiter=args.delimiter,
+        )
+    except Exception as exc:
+        print(f"Fehler beim Plotten: {exc}")
+        import traceback
+        traceback.print_exc()
+        raise SystemExit(1)
+
+
+if __name__ == "__main__":
+    main()
