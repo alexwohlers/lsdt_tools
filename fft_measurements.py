@@ -7,15 +7,15 @@ und speichert die Ergebnisse (Frequenz, Magnitude, Phase) im fft/ Verzeichnis.
 
 Beispiele:
   - Einfache FFT:
-      python fft_measurements.py --file measurements/sample.csv
+      python fft_measurements.py sample
   - Mit Fenster-Funktion:
-      python fft_measurements.py --file measurements/sinus.csv --window hann
+      python fft_measurements.py sinus --window hann
   - Nur positive Frequenzen (einseitig):
-      python fft_measurements.py --file measurements/data.csv --onesided
+      python fft_measurements.py data --onesided
   - Mit dB-Skala für Magnitude:
-      python fft_measurements.py --file measurements/signal.csv --db
+      python fft_measurements.py signal --db
   - Ausgabedatei explizit angeben:
-      python fft_measurements.py --file measurements/input.csv --out fft/output.csv
+      python fft_measurements.py input --out fft/custom_output.csv
 """
 from __future__ import annotations
 
@@ -239,9 +239,8 @@ def parse_args() -> argparse.Namespace:
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     p.add_argument(
-        "--file",
-        required=True,
-        help="Pfad zur Eingabe-CSV-Datei (z.B. measurements/sample.csv)",
+        "name",
+        help="Dateiname ohne Endung (wird in measurements/ gesucht, z.B. 'sample')",
     )
     p.add_argument(
         "--out",
@@ -285,24 +284,19 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     
-    # Eingabedatei prüfen
-    input_file = args.file
+    # Eingabedatei aus measurements/ konstruieren
+    input_file = os.path.join("measurements", f"{args.name}.csv")
+    
     if not os.path.exists(input_file):
-        # Versuchen im measurements/ Verzeichnis
-        measurements_path = os.path.join("measurements", args.file)
-        if os.path.exists(measurements_path):
-            input_file = measurements_path
-        else:
-            print(f"Fehler: Datei '{args.file}' nicht gefunden.")
-            sys.exit(1)
+        print(f"Fehler: Datei '{input_file}' nicht gefunden.")
+        sys.exit(1)
     
     # Ausgabedatei bestimmen
     if args.out:
         output_file = args.out
     else:
         # Gleicher Name, aber im fft/ Verzeichnis
-        input_name = Path(input_file).stem  # Dateiname ohne Erweiterung
-        output_file = os.path.join("fft", f"{input_name}.csv")
+        output_file = os.path.join("fft", f"{args.name}.csv")
     
     # Signal einlesen
     try:

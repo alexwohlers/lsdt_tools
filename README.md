@@ -195,30 +195,30 @@ pip install numpy
 ### Verwendung
 
 ```powershell
-# Einfache FFT
-python .\fft_measurements.py --file measurements\sinus_2hz.csv
+# Einfache FFT (nur Dateiname ohne Verzeichnis und Endung)
+python .\fft_measurements.py sinus_2hz
 
 # Mit Hann-Fenster zur Reduktion von Spektralleckage
-python .\fft_measurements.py --file measurements\data.csv --window hann
+python .\fft_measurements.py data --window hann
 
 # Mit dB-Skala für Magnitude
-python .\fft_measurements.py --file measurements\signal.csv --db
+python .\fft_measurements.py signal --db
 
 # Zweiseitiges Spektrum (negative + positive Frequenzen)
-python .\fft_measurements.py --file measurements\data.csv --twosided
+python .\fft_measurements.py data --twosided
 
 # Abtastrate manuell überschreiben
-python .\fft_measurements.py --file measurements\data.csv --fs 1000
+python .\fft_measurements.py data --fs 1000
 
 # Ausgabedatei explizit angeben
-python .\fft_measurements.py --file measurements\input.csv --out fft\custom_output.csv
+python .\fft_measurements.py input --out fft\custom_output.csv
 ```
 
 ### Parameter für fft_measurements.py
 
 | Parameter | Beschreibung |
 |-----------|--------------|
-| `--file` | Pfad zur Eingabe-CSV-Datei (aus measurements/) |
+| `name` (positional) | Dateiname ohne Endung (wird in measurements/ gesucht) |
 | `--out` | Pfad zur Ausgabe-CSV-Datei (Standard: `fft/<dateiname>.csv`) |
 | `--window` | Fenster-Funktion: `none`, `hann`, `hamming`, `blackman`, `bartlett`, `kaiser` |
 | `--onesided` | Nur positive Frequenzen (Standard: aktiv) |
@@ -254,33 +254,33 @@ Fenster-Funktionen reduzieren Spektralleckage (Spectral Leakage) bei nicht-perio
 
 ---
 
-## Gegenüberstellung: Zeit- und Frequenzbereich mit `plot_fft_measurements.py`
+## Gegenüberstellung: Zeit- und Frequenzbereich mit `plot_fft.py`
 
-Das Skript `plot_fft_measurements.py` visualisiert Messdaten und FFT-Ergebnisse nebeneinander.
+Das Skript `plot_fft.py` visualisiert Messdaten und FFT-Ergebnisse nebeneinander.
 
 ### Verwendung
 
 ```powershell
 # Einfache Gegenüberstellung
-python .\plot_fft_measurements.py --file sinus_2hz.csv
+python .\plot_fft.py --file sinus_2hz.csv
 
 # Mit Titel und Frequenzlimit (z.B. nur bis 50 Hz)
-python .\plot_fft_measurements.py --file data.csv --title "Signal-Analyse" --fmax 50
+python .\plot_fft.py --file data.csv --title "Signal-Analyse" --fmax 50
 
 # Mit logarithmischer Skala (dB)
-python .\plot_fft_measurements.py --file signal.csv --log
+python .\plot_fft.py --file signal.csv --log
 
 # Phase als dritten Subplot anzeigen
-python .\plot_fft_measurements.py --file sinus.csv --phase
+python .\plot_fft.py --file sinus.csv --phase
 
-# Als PNG speichern
-python .\plot_fft_measurements.py --file data.csv --save analysis.png
+# Als PNG speichern (wird in plot_fft/ gespeichert)
+python .\plot_fft.py --file data.csv --save analysis.png
 
 # Größeres Plot-Format
-python .\plot_fft_measurements.py --file signal.csv --figsize 20 8
+python .\plot_fft.py --file signal.csv --figsize 20 8
 ```
 
-### Parameter für plot_fft_measurements.py
+### Parameter für plot_fft.py
 
 | Parameter | Beschreibung |
 |-----------|--------------|
@@ -311,10 +311,10 @@ python .\plot_fft_measurements.py --file signal.csv --figsize 20 8
 python .\generate_measurements.py mixed_signal --func "sin(2*pi*5*t) + 0.5*sin(2*pi*12*t)" --fs 100 --duration 2
 
 # 2. FFT durchführen mit Hann-Fenster
-python .\fft_measurements.py --file measurements\mixed_signal.csv --window hann
+python .\fft_measurements.py mixed_signal --window hann
 
 # 3. Gegenüberstellung plotten (nur bis 20 Hz)
-python .\plot_fft_measurements.py --file mixed_signal.csv --fmax 20 --title "Zwei-Frequenz-Signal" --save mixed_analysis.png
+python .\plot_fft.py --file mixed_signal.csv --fmax 20 --title "Zwei-Frequenz-Signal" --save mixed_analysis.png
 
 # 4. (Optional) Nur Zeitbereich plotten
 python .\plot_measurements.py mixed_signal --title "Zeitbereich"

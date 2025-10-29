@@ -2,15 +2,17 @@
 """
 Plot-Messdaten: Visualisierung von CSV-Messdaten aus dem measurements/ Verzeichnis.
 
+Plots werden automatisch als PNG im plot_measurements/ Verzeichnis gespeichert.
+
 Beispiele:
-  - Einfacher Plot (Name ohne Endung):
+  - Einfacher Plot (speichert als plot_measurements/sample.png):
       python plot_measurements.py sample
   - Mit Titel und Beschriftungen:
       python plot_measurements.py sinus --title "Sinus 1 Hz" --xlabel "Zeit [s]" --ylabel "Amplitude"
   - Mehrere Dateien überlagert:
       python plot_measurements.py sinus cosinus --title "Vergleich"
-  - Als PNG speichern statt anzeigen:
-      python plot_measurements.py data --save plot.png
+  - Mit eigenem Dateinamen speichern:
+      python plot_measurements.py data --save-as mein_plot.png
   - Mit Grid und Marker:
       python plot_measurements.py sample --marker o
 """
@@ -229,7 +231,6 @@ def plot_data(
     # Speichern oder anzeigen
     if save_path:
         # Sicherstellen, dass Ausgabeverzeichnis existiert
-        import os
         save_dir = os.path.dirname(save_path)
         if save_dir and not os.path.exists(save_dir):
             os.makedirs(save_dir, exist_ok=True)
@@ -258,7 +259,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--marker", help="Marker-Stil (z.B. 'o', 's', '^', 'x')")
     p.add_argument("--linestyle", default="-", help="Linien-Stil (z.B. '-', '--', '-.', ':')")
     p.add_argument("--figsize", nargs=2, type=int, default=[12, 6], help="Größe der Figur (Breite Höhe)")
-    p.add_argument("--save", dest="save_path", help="Dateiname für Plot (ohne Pfad, wird in plots/ gespeichert). Ohne --save wird Plot angezeigt.")
+    p.add_argument("--save-as", dest="save_path", help="Eigener Dateiname für Plot (wird in plot_measurements/ gespeichert)")
     p.add_argument("--delimiter", default=",", help="CSV-Trennzeichen")
     return p.parse_args()
 
@@ -294,15 +295,17 @@ def main() -> None:
         
         files.append(file_path)
     
-    # Speicherpfad verarbeiten
+    # Speicherpfad verarbeiten - immer speichern in plot_measurements/
     if args.save_path:
-        # Wenn nur Dateiname, in plots/ speichern
+        # Eigener Dateiname angegeben
         if not os.path.dirname(args.save_path):
-            save_path = os.path.join("plots", args.save_path)
+            save_path = os.path.join("plot_measurements", args.save_path)
         else:
             save_path = args.save_path
     else:
-        save_path = None
+        # Standard: plot_measurements/<erster_dateiname>.png
+        base_name = Path(files[0]).stem
+        save_path = os.path.join("plot_measurements", f"{base_name}.png")
     
     try:
         plot_data(

@@ -1,0 +1,7 @@
+python generate_measurements.py sinus_1hz --func "sin(2*pi*1*t)" --fs 10000 --duration 20
+python plot_measurements.py sinus_1hz --title "Sinus 1Hz"
+python fft_measurements.py sinus_1hz
+python plot_fft.py sinus_1hz
+
+
+python .\generate_measurements.py signal_mixed --func "0.5*sin(2*pi*0.2*t) + 0.2*cos(2*pi*1.5*t)" --fs 50 --duration 10 --noise 0.05 --timestamp iso
