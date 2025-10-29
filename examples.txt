@@ -1,7 +1,20 @@
 python generate_measurements.py sinus_1hz --func "sin(2*pi*1*t)" --fs 10000 --duration 20
 python plot_measurements.py sinus_1hz --title "Sinus 1Hz"
 python fft_measurements.py sinus_1hz
-python plot_fft.py sinus_1hz
+python plot_fft.py sinus_1hz --fmax 5 --title "Sinus 1Hz"
+
+python generate_measurements.py sinus_1hz_twosided --func "sin(2*pi*1*t)" --fs 10000 --duration 20
+python plot_measurements.py sinus_1hz_twosided --title "Sinus 1Hz twosided"
+python fft_measurements.py sinus_1hz_twosided --twosided
+python plot_fft.py sinus_1hz_twosided --fmax 5 --fmin -5 --title "Sinus 1Hz twosided"
 
 
-python .\generate_measurements.py signal_mixed --func "0.5*sin(2*pi*0.2*t) + 0.2*cos(2*pi*1.5*t)" --fs 50 --duration 10 --noise 0.05 --timestamp iso
+python .\generate_measurements.py signal_mixed_noise --func "0.5*sin(2*pi*0.2*t) + 0.2*cos(2*pi*1.5*t)" --fs 10000 --duration 20 --noise 0.5
+python plot_measurements.py signal_mixed_noise --title "Überlagerte Signale mit Rauschem"
+python fft_measurements.py signal_mixed_noise
+python plot_fft.py signal_mixed_noise --fmax 5
+
+python .\generate_measurements.py signal_mixed --func "0.5*sin(2*pi*0.2*t) + 0.2*cos(2*pi*1.5*t)" --fs 10000 --duration 20
+python plot_measurements.py signal_mixed --title "Überlagerte Signale mit Rauschem"
+python fft_measurements.py signal_mixed
+python plot_fft.py signal_mixed --fmax 5

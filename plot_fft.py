@@ -13,6 +13,8 @@ Beispiele:
       python plot_fft.py --file sinus.csv --title "FFT-Analyse" --log
   - Nur bis 50 Hz anzeigen:
       python plot_fft.py --file data.csv --fmax 50
+  - Frequenzbereich 10-100 Hz:
+      python plot_fft.py --file data.csv --fmin 10 --fmax 100
   - Als PNG speichern:
       python plot_fft.py --file signal.csv --save analysis.png
   - Phase auch anzeigen (3 Subplots):
@@ -162,6 +164,7 @@ def plot_combined(
     time_file: str,
     fft_file: str,
     title: Optional[str] = None,
+    fmin: Optional[float] = None,
     fmax: Optional[float] = None,
     log_scale: bool = False,
     show_phase: bool = False,
@@ -211,14 +214,25 @@ def plot_combined(
         frequencies, magnitude, phase, is_db = read_frequency_domain_data(fft_file, delimiter)
         
         # Frequenz-Limit anwenden
+        mask = np.ones(len(frequencies), dtype=bool)
+        if fmin is not None:
+            mask &= frequencies >= fmin
         if fmax is not None:
-            mask = frequencies <= fmax
-            frequencies = frequencies[mask]
-            magnitude = magnitude[mask]
-            phase = phase[mask]
+            mask &= frequencies <= fmax
         
-        # Magnitude plotten
-        ax_freq.plot(frequencies, magnitude, linewidth=1.5, color="darkgreen")
+        frequencies = frequencies[mask]
+        magnitude = magnitude[mask]
+        phase = phase[mask]
+        
+        # Magnitude plotten als Balkendiagramm
+        # Balkenbreite aus Frequenzauflösung ableiten
+        if len(frequencies) > 1:
+            freq_resolution = frequencies[1] - frequencies[0]
+            bar_width = freq_resolution * 0.8  # 80% der Auflösung für schmale Balken
+        else:
+            bar_width = 0.1
+        
+        ax_freq.bar(frequencies, magnitude, width=bar_width, color="crimson", edgecolor="crimson", alpha=0.7)
         ax_freq.set_title("Frequenzbereich (Magnitude)", fontsize=12, fontweight="bold")
         ax_freq.set_xlabel("Frequenz [Hz]", fontsize=10)
         
@@ -228,7 +242,7 @@ def plot_combined(
                 # Konvertiere zu dB wenn nicht schon in dB
                 magnitude_db = 20 * np.log10(np.maximum(magnitude, 1e-10))
                 ax_freq.clear()
-                ax_freq.plot(frequencies, magnitude_db, linewidth=1.5, color="darkgreen")
+                ax_freq.bar(frequencies, magnitude_db, width=bar_width, color="crimson", edgecolor="crimson", alpha=0.7)
                 ylabel = "Magnitude [dB]"
             ax_freq.set_ylabel(ylabel, fontsize=10)
         else:
@@ -280,6 +294,7 @@ def parse_args() -> argparse.Namespace:
         help="Dateiname ohne Endung (z.B. 'sample'). Sucht in measurements/ und fft/",
     )
     p.add_argument("--title", help="Titel des Plots")
+    p.add_argument("--fmin", type=float, help="Minimale Frequenz in Hz für FFT-Plot")
     p.add_argument("--fmax", type=float, help="Maximale Frequenz in Hz für FFT-Plot")
     p.add_argument("--log", action="store_true", help="Logarithmische Skala (dB) für Magnitude")
     p.add_argument("--phase", action="store_true", help="Phase als dritten Subplot anzeigen")
@@ -350,6 +365,7 @@ def main() -> None:
             time_file=time_file,
             fft_file=fft_file,
             title=args.title,
+            fmin=args.fmin,
             fmax=args.fmax,
             log_scale=args.log,
             show_phase=args.phase,
