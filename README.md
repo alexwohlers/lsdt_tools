@@ -262,35 +262,35 @@ Das Skript `plot_fft.py` visualisiert Messdaten und FFT-Ergebnisse nebeneinander
 
 ```powershell
 # Einfache Gegenüberstellung
-python .\plot_fft.py --file sinus_2hz.csv
+python .\plot_fft.py sinus_2hz
 
 # Mit Titel und Frequenzlimit (z.B. nur bis 50 Hz)
-python .\plot_fft.py --file data.csv --title "Signal-Analyse" --fmax 50
+python .\plot_fft.py data --title "Signal-Analyse" --fmax 50
 
 # Mit logarithmischer Skala (dB)
-python .\plot_fft.py --file signal.csv --log
+python .\plot_fft.py signal --log
 
 # Phase als dritten Subplot anzeigen
-python .\plot_fft.py --file sinus.csv --phase
+python .\plot_fft.py sinus --phase
 
 # Als PNG speichern (wird in plot_fft/ gespeichert)
-python .\plot_fft.py --file data.csv --save analysis.png
+python .\plot_fft.py data --save analysis.png
 
 # Größeres Plot-Format
-python .\plot_fft.py --file signal.csv --figsize 20 8
+python .\plot_fft.py signal --figsize 20 8
 ```
 
 ### Parameter für plot_fft.py
 
 | Parameter | Beschreibung |
 |-----------|--------------|
-| `--file` | Basis-Dateiname (z.B. `sample.csv`). Sucht in `measurements/` und `fft/` |
+| `name` (positional) | Dateiname ohne Endung (z.B. `sample`). Sucht in `measurements/` und `fft/` |
 | `--title` | Titel des Plots |
 | `--fmax` | Maximale Frequenz in Hz für FFT-Plot |
 | `--log` | Logarithmische Skala (dB) für Magnitude |
 | `--phase` | Phase als dritten Subplot anzeigen |
 | `--figsize` | Größe der Figur (Breite Höhe), z.B. `--figsize 20 8` |
-| `--save` | Speichern als Datei (z.B. `analysis.png`) |
+| `--save` | Speichern als Datei (z.B. `analysis.png`, wird in `plot_fft/` gespeichert) |
 | `--time-file` | Expliziter Pfad zur Zeitbereich-Datei |
 | `--fft-file` | Expliziter Pfad zur FFT-Datei |
 | `--delimiter` | CSV-Trennzeichen |
@@ -314,7 +314,7 @@ python .\generate_measurements.py mixed_signal --func "sin(2*pi*5*t) + 0.5*sin(2
 python .\fft_measurements.py mixed_signal --window hann
 
 # 3. Gegenüberstellung plotten (nur bis 20 Hz)
-python .\plot_fft.py --file mixed_signal.csv --fmax 20 --title "Zwei-Frequenz-Signal" --save mixed_analysis.png
+python .\plot_fft.py mixed_signal --fmax 20 --title "Zwei-Frequenz-Signal" --save mixed_analysis.png
 
 # 4. (Optional) Nur Zeitbereich plotten
 python .\plot_measurements.py mixed_signal --title "Zeitbereich"

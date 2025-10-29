@@ -260,17 +260,14 @@ def plot_combined(
     plt.tight_layout()
     
     # Speichern oder anzeigen
-    if save_path:
-        # Sicherstellen, dass Ausgabeverzeichnis existiert
-        import os
-        save_dir = os.path.dirname(save_path)
-        if save_dir and not os.path.exists(save_dir):
-            os.makedirs(save_dir, exist_ok=True)
-        
-        plt.savefig(save_path, dpi=300, bbox_inches="tight")
-        print(f"Plot gespeichert: {save_path}")
-    else:
-        plt.show()
+    # Immer speichern, nie anzeigen
+    # Sicherstellen, dass Ausgabeverzeichnis existiert
+    import os
+    save_dir = os.path.dirname(save_path)
+    if save_dir and not os.path.exists(save_dir):
+        os.makedirs(save_dir, exist_ok=True)
+    plt.savefig(save_path, dpi=300, bbox_inches="tight")
+    print(f"Plot gespeichert: {save_path}")
 
 
 def parse_args() -> argparse.Namespace:
@@ -279,9 +276,8 @@ def parse_args() -> argparse.Namespace:
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     p.add_argument(
-        "--file",
-        required=True,
-        help="Basis-Dateiname (z.B. 'sample.csv'). Sucht in measurements/ und fft/",
+        "name",
+        help="Dateiname ohne Endung (z.B. 'sample'). Sucht in measurements/ und fft/",
     )
     p.add_argument("--title", help="Titel des Plots")
     p.add_argument("--fmax", type=float, help="Maximale Frequenz in Hz für FFT-Plot")
@@ -304,17 +300,24 @@ def main() -> None:
         fft_file = args.fft_file
     else:
         # Automatisch aus --file ableiten
-        base_name = args.file
-        
-        # Zeitbereich-Datei
-        if not os.path.isabs(base_name) and not base_name.startswith("measurements"):
-            time_file = os.path.join("measurements", base_name)
+        base_name = args.name
+
+        # Zeitbereich-Datei: wenn der Nutzer einen relativen Pfad oder Namen angibt,
+        # bauen wir measurements/<base_name> (erlaubt ist auch 'measurements/name.csv' oder absolute Pfade)
+        if args.time_file:
+            time_file = args.time_file
         else:
-            time_file = base_name
-        
-        # FFT-Datei
-        file_stem = Path(base_name).stem
-        fft_file = os.path.join("fft", f"{file_stem}.csv")
+            if os.path.isabs(base_name) or base_name.startswith("measurements"):
+                time_file = base_name
+            else:
+                time_file = os.path.join("measurements", f"{base_name}.csv")
+
+        # FFT-Datei: standardmäßig fft/<name>.csv
+        if args.fft_file:
+            fft_file = args.fft_file
+        else:
+            file_stem = Path(base_name).stem
+            fft_file = os.path.join("fft", f"{file_stem}.csv")
     
     # Prüfen ob Dateien existieren
     if not os.path.exists(time_file):
@@ -323,7 +326,9 @@ def main() -> None:
     
     if not os.path.exists(fft_file):
         print(f"Fehler: FFT-Datei nicht gefunden: {fft_file}")
-        print(f"Tipp: Führen Sie zuerst 'python fft_measurements.py --file {args.file}' aus")
+        # Hinweis an den Nutzer: wie erzeugt man die FFT-Datei mit dem neuen CLI (name ohne Endung)
+        suggested = Path(fft_file).stem
+        print(f"Tipp: Führen Sie zuerst 'python fft_measurements.py {suggested}' aus")
         sys.exit(1)
     
     print(f"Zeitbereich: {time_file}")
@@ -337,7 +342,8 @@ def main() -> None:
         else:
             save_path = args.save_path
     else:
-        save_path = None
+        # Standard: plot_fft/<name>.png
+        save_path = os.path.join("plot_fft", f"{args.name}.png")
     
     try:
         plot_combined(
