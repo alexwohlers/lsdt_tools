@@ -19,7 +19,7 @@ def phasor_plot(freqs, amps, phases, duration=1.0, fs=1000, save_path=None, titl
     signal = np.sum(phasors, axis=0)
     
     # Figure erstellen
-    fig = plt.figure(figsize=(12,6))
+    fig = plt.figure(figsize=(10,5))
     
     # Gemeinsame Skala für beide Plots
     max_val = max(np.abs(signal.real).max(), np.abs(signal.imag).max(), sum(amps))
@@ -75,7 +75,11 @@ def phasor_plot(freqs, amps, phases, duration=1.0, fs=1000, save_path=None, titl
         time_line.set_data(t[:i+1], signal.real[:i+1])
         time_point.set_data([t[i]], [signal.real[i]])
         return arrow_objs + circle_objs + [sum_line, time_line, time_point]
-    frames = len(t)
+    # Bestimme die erste Frequenz für die Umdrehung
+    first_freq = freqs[0]
+    t_720 = 2 / first_freq  # 2 Perioden des ersten Zeigers
+    idx_720 = np.searchsorted(t, t_720)
+    frames = min(idx_720 if idx_720 > 0 else len(t), len(t))
     ani = animation.FuncAnimation(fig, animate, frames=frames, interval=30, blit=False)
     # Titel setzen, falls vorhanden
     if title:

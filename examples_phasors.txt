@@ -10,10 +10,8 @@ python plot_phasors.py --freqs 5 5.5 --amps 1 1 --phases 0 0 --duration 4 --fs 1
 
 python plot_phasors.py --freqs 3 3 --amps 1 0.7 --phases 0 1.5708 --duration 2 --fs 1000 --save phasenverschiebung --title "Phasenverschiebung"
 
-python plot_phasors.py --freqs 2 6 10 14 --amps 1 0.333 0.2 0.143 --phases 0 0 0 0 --duration 2 --fs 1000 --save rechteck_approximation --title "Rechteck-Approximation"
+python plot_phasors.py --freqs 2 6 10 14 18 --amps 1.273 0.424 0.255 0.182 0.141 --phases 1.5708 1.5708 1.5708 1.5708 1.5708 --duration 2 --fs 1000 --save rechteck_approximation --title "Rechteck-Approximation"
 
 python plot_phasors.py --freqs 18 20 22 --amps 0.25 1 0.25 --phases 0 0 0 --duration 2 --fs 1000 --save amplitudenmodulation --title "Amplitudenmodulation"
 
 python plot_phasors.py --freqs 2 5 8 12 17 23 --amps 1 0.8 0.6 0.4 0.3 0.2 --phases 0 0 0 0 0 0 --duration 3 --fs 1000 --save komplexes_muster --title "Komplexes Mustersignal"
-
-python plot_phasors.py --freqs 0.5 1.5 --amps 1 0.6 --phases 0 0 --duration 8 --fs 1000 --save niederfrequent --title "Niederfrequente Signale"
