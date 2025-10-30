@@ -168,7 +168,7 @@ def plot_combined(
     fmax: Optional[float] = None,
     log_scale: bool = False,
     show_phase: bool = False,
-    phase_threshold: Optional[float] = None,
+    # Kein phase_threshold mehr als Übergabeparameter
     figsize: Tuple[int, int] = (16, 6),
     save_path: Optional[str] = None,
     delimiter: str = ",",
@@ -259,34 +259,22 @@ def plot_combined(
         
         # Phase plotten (rechts) falls gewünscht
         if show_phase and ax_phase is not None:
-            # Phase-Threshold anwenden: nur Phasenwerte anzeigen, wenn Amplitude über Schwellwert
+            # Standard-Threshold: 5% des Maximums
+            threshold = 0.05 * np.max(magnitude) if len(magnitude) > 0 else 0.0
             phase_to_plot = np.rad2deg(phase).copy()
             frequencies_to_plot = frequencies.copy()
-            
-            if phase_threshold is not None:
-                # Maske erstellen: nur Phasen anzeigen, wo Magnitude >= threshold
-                mask_above_threshold = magnitude >= phase_threshold
-                phase_to_plot = phase_to_plot[mask_above_threshold]
-                frequencies_to_plot = frequencies_to_plot[mask_above_threshold]
-            
-            # Als Punkte darstellen statt Balken
+            mask_above_threshold = magnitude >= threshold
+            phase_to_plot = phase_to_plot[mask_above_threshold]
+            frequencies_to_plot = frequencies_to_plot[mask_above_threshold]
             ax_phase.plot(frequencies_to_plot, phase_to_plot, 'o', color="crimson", markersize=4, alpha=0.7)
             ax_phase.set_title("Frequenzbereich (Phase)", fontsize=12, fontweight="bold")
             ax_phase.set_xlabel("Frequenz [Hz]", fontsize=10)
             ax_phase.set_ylabel("Phase [°]", fontsize=10)
             ax_phase.grid(True, alpha=0.3, linestyle="--")
-            
-            # X-Achse des Phasendiagramms an Amplitudendiagramm anpassen
             ax_phase.set_xlim(ax_freq.get_xlim())
-            
-            # Y-Achse auf -100° bis 100° setzen
-            ax_phase.set_ylim(-100, 100)
-            
-            # Y-Ticks bei -90°, -45°, 0°, 45°, 90° setzen
-            ax_phase.set_yticks([-90, -45, 0, 45, 90])
-            
-            # Gestrichelte Linien bei -90°, -45°, 0°, 45°, 90°
-            for angle in [-90, -45, 0, 45, 90]:
+            ax_phase.set_ylim(-180, 180)
+            ax_phase.set_yticks([-180, -90, 0, 90, 180])
+            for angle in [-180, -90, 0, 90, 180]:
                 ax_phase.axhline(y=angle, color="gray", linestyle="--", linewidth=0.8, alpha=0.5)
         
     except Exception as e:
@@ -329,7 +317,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--log", action="store_true", help="Logarithmische Skala (dB) für Magnitude")
     p.add_argument("--phase", action="store_true", default=True, help="Phase als dritten Subplot anzeigen (Standard: aktiv)")
     p.add_argument("--no-phase", dest="phase", action="store_false", help="Phase NICHT anzeigen")
-    p.add_argument("--phase-threshold", type=float, help="Minimale Amplitude, ab der Phase angezeigt wird (z.B. 0.1)")
+    # Kein phase-threshold mehr als Übergabeparameter
     p.add_argument("--figsize", nargs=2, type=int, default=[16, 6], help="Größe der Figur (Breite Höhe)")
     p.add_argument("--save", dest="save_path", help="Dateiname für Plot (ohne Pfad, wird in plot_fft/ gespeichert)")
     p.add_argument("--delimiter", default=",", help="CSV-Trennzeichen")
@@ -401,7 +389,6 @@ def main() -> None:
             fmax=args.fmax,
             log_scale=args.log,
             show_phase=args.phase,
-            phase_threshold=args.phase_threshold,
             figsize=tuple(args.figsize),
             save_path=save_path,
             delimiter=args.delimiter,

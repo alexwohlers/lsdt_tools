@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
 """
-Plot FFT 3D: Perspektivische Darstellung der FFT-Transformation.
+Plot FFT 3D: 3D-Darstellung von Frequenzkomponenten im Zeitbereich.
 
-Zeigt die Transformation vom Zeitbereich zum Frequenzbereich in einer
-3D-perspektivischen Ansicht mit beiden Ebenen und Verbindungslinien.
+Zeigt für jede Frequenz aus dem FFT-Spektrum das entsprechende Zeitsignal
+(Amplitude * cos(2πft + φ)) in 3D. Die Z-Achse zeigt die Frequenz.
 
 Beispiele:
   - Einfache 3D-Darstellung:
       python plot_fft_3d.py sinus_1hz
   - Mit Frequenzlimit:
-      python plot_fft_3d.py signal --fmax 10
+      python plot_fft_3d.py mixed_signal --fmax 20
+  - Mit Zeitlimit:
+      python plot_fft_3d.py data --tmax 1.0
   - Mit Titel:
-      python plot_fft_3d.py data --title "FFT-Transformation"
+      python plot_fft_3d.py signal --title "Frequenzkomponenten"
 """
 from __future__ import annotations
 
@@ -20,8 +22,7 @@ import csv
 import os
 import sys
 from pathlib import Path
-from typing import List, Tuple, Optional
-from datetime import datetime
+from typing import Tuple, Optional
 
 try:
     import matplotlib.pyplot as plt
@@ -31,6 +32,39 @@ except ImportError as e:
     print(f"Fehler: Benötigte Bibliothek nicht installiert: {e}")
     print("Bitte installieren mit: pip install matplotlib numpy")
     sys.exit(1)
+
+
+def read_fft_data(file_path: str, delimiter: str = ",") -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Liest FFT-Daten aus CSV.
+    
+    Returns:
+        frequencies, magnitude, phase (in Radiant)
+    """
+    frequencies = []
+    magnitude = []
+    phase = []
+    
+    with open(file_path, "r", encoding="utf-8") as f:
+        reader = csv.reader(f, delimiter=delimiter)
+        header = next(reader, None)
+        
+        # Header prüfen ob Phase-Spalte vorhanden
+        has_phase = header and len(header) >= 3
+        
+        for row in reader:
+            try:
+                if len(row) >= 2:
+                    frequencies.append(float(row[0]))
+                    magnitude.append(float(row[1]))
+                    if has_phase and len(row) >= 3:
+                        phase.append(float(row[2]))
+                    else:
+                        phase.append(0.0)  # Fallback: Phase = 0
+            except (ValueError, IndexError):
+                continue
+    
+    return np.array(frequencies), np.array(magnitude), np.array(phase)
 
 
 def detect_csv_format(file_path: str, delimiter: str = ",") -> str:
@@ -79,14 +113,13 @@ def read_time_domain_data(file_path: str, delimiter: str = ",") -> Tuple[np.ndar
                 except (ValueError, IndexError):
                     continue
         else:
-            # Fallback für andere Formate
             for idx, row in enumerate(reader):
                 try:
                     if len(row) >= 2:
                         x_values.append(float(row[0]))
                         y_values.append(float(row[-1]))
                     elif len(row) == 1:
-                        x_values.append(idx * 0.01)  # Annahme: 100 Hz
+                        x_values.append(idx * 0.01)
                         y_values.append(float(row[0]))
                 except (ValueError, IndexError):
                     continue
@@ -94,122 +127,185 @@ def read_time_domain_data(file_path: str, delimiter: str = ",") -> Tuple[np.ndar
     return np.array(x_values), np.array(y_values)
 
 
-def read_frequency_domain_data(file_path: str, delimiter: str = ",") -> Tuple[np.ndarray, np.ndarray]:
-    """Liest Frequenzbereich-Daten (FFT-Ergebnisse) aus CSV."""
-    frequencies = []
-    magnitude = []
-    
-    with open(file_path, "r", encoding="utf-8") as f:
-        reader = csv.reader(f, delimiter=delimiter)
-        header = next(reader, None)
-        
-        for row in reader:
-            try:
-                if len(row) >= 2:
-                    frequencies.append(float(row[0]))
-                    magnitude.append(float(row[1]))
-            except (ValueError, IndexError):
-                continue
-    
-    return np.array(frequencies), np.array(magnitude)
-
-
-def plot_3d_transformation(
+def plot_frequency_components_3d(
     time_file: str,
     fft_file: str,
     title: Optional[str] = None,
     fmax: Optional[float] = None,
     tmax: Optional[float] = None,
+    min_magnitude: float = 0.01,
     figsize: Tuple[int, int] = (14, 10),
     save_path: Optional[str] = None,
     delimiter: str = ",",
 ) -> None:
     """
-    Plottet Zeit- und Frequenzbereich in 3D-Perspektive.
+    Plottet Frequenzkomponenten als 3D-Signale.
+    
+    Für jede signifikante Frequenz wird das Signal A*cos(2πft + φ) berechnet
+    und bei der entsprechenden Frequenz auf der Z-Achse geplottet.
+    
+    Args:
+        time_file: Pfad zur Zeitbereich-CSV (für Original-Signal)
+        fft_file: Pfad zur FFT-CSV (Frequenz, Amplitude, Phase)
+        title: Plot-Titel
+        fmax: Maximale Frequenz zum Plotten
+        tmax: Maximale Zeit für Zeitachse
+        min_magnitude: Minimale Amplitude für sichtbare Komponenten
+        figsize: Figur-Größe
+        save_path: Speicherpfad
+        delimiter: CSV-Trennzeichen
     """
-    # Daten laden
-    t_time, signal = read_time_domain_data(time_file, delimiter)
+    # FFT-Daten laden
+    frequencies, magnitude, phase = read_fft_data(fft_file, delimiter)
     
-    # Zeitlimit anwenden
-    if tmax is not None:
-        mask = t_time <= tmax
-        t_time = t_time[mask]
-        signal = signal[mask]
-    
-    # Daten für bessere Darstellung sampeln (zu viele Punkte machen Plot unübersichtlich)
-    max_time_points = 500
-    
-    if len(t_time) > max_time_points:
-        step = len(t_time) // max_time_points
-        t_time = t_time[::step]
-        signal = signal[::step]
-    
-    # 3D Plot erstellen
-    fig = plt.figure(figsize=figsize)
-    ax = fig.add_subplot(111, projection='3d')
-    
-    # Zeitbereich: X-Achse normal (Null links, Maximum rechts)
-    x_time = t_time  # Zeit normal
-    y_time = np.zeros_like(t_time)  # Y=0
-    z_signal = signal              # Signal normal
-    ax.plot(x_time, y_time, z_signal, color='crimson', linewidth=2, label='Zeitbereich', zorder=10)
-
-    # Frequenzbereich auf der anderen Achse unten (X=0)
-    frequencies, magnitude = read_frequency_domain_data(fft_file, delimiter)
     # Frequenz-Limit anwenden
     if fmax is not None:
         mask = frequencies <= fmax
         frequencies = frequencies[mask]
         magnitude = magnitude[mask]
-    x_freq = np.zeros_like(frequencies)  # X=0
-    y_freq = frequencies                # Frequenz normal
-    z_magnitude = magnitude             # Magnitude normal
-    for y, z in zip(y_freq, z_magnitude):
-        ax.plot([0, 0], [y, y], [0, z], color='steelblue', linewidth=2, alpha=0.8)
+        phase = phase[mask]
+    
+    # Nur signifikante Komponenten (Magnitude > Schwellwert)
+    mask = magnitude > min_magnitude
+    frequencies = frequencies[mask]
+    magnitude = magnitude[mask]
+    phase = phase[mask]
+    
+    if len(frequencies) == 0:
+        print("Keine signifikanten Frequenzkomponenten gefunden.")
+        print(f"Tipp: Reduzieren Sie --min-magnitude (aktuell: {min_magnitude})")
+        return
+    
+    print(f"Plotte {len(frequencies)} Frequenzkomponenten...")
+    
+    # Zeitbereich bestimmen
+    t_time, signal_orig = read_time_domain_data(time_file, delimiter)
+    if tmax is not None:
+        t_max_val = min(tmax, t_time.max())
+        mask_time = t_time <= t_max_val
+        t_time = t_time[mask_time]
+        signal_orig = signal_orig[mask_time]
+    else:
+        t_max_val = t_time.max()
+    
+    # Zeitvektor für Signalberechnung (hochauflösend)
+    t = np.linspace(0, t_max_val, 10000)
+    
+    # 3D Plot erstellen
+    fig = plt.figure(figsize=figsize)
+    ax = fig.add_subplot(111, projection='3d')
 
-    # Zeit-Gitter
-    time_min, time_max = t_time.min(), t_time.max()
-    signal_min, signal_max = signal.min(), signal.max()
-    signal_range = signal_max - signal_min
-    for t in np.linspace(time_min, time_max, 10):
-        ax.plot([t, t], [0, 0], [signal_min - 0.1*signal_range, signal_max + 0.1*signal_range], color='gray', linewidth=0.3, alpha=0.3)
-    for amp in np.linspace(signal_min - 0.1*signal_range, signal_max + 0.1*signal_range, 8):
-        ax.plot([time_min, time_max], [0, 0], [amp, amp], color='gray', linewidth=0.3, alpha=0.3)
-    freq_min, freq_max = y_freq.min(), y_freq.max()
-    mag_max = z_magnitude.max() if len(z_magnitude) > 0 else 1
-    for f in np.linspace(freq_min, freq_max, 10):
-        ax.plot([0, 0], [f, f], [0, mag_max * 1.1], color='gray', linewidth=0.3, alpha=0.3)
-    for mag in np.linspace(0, mag_max * 1.1, 8):
-        ax.plot([0, 0], [freq_min, freq_max], [mag, mag], color='gray', linewidth=0.3, alpha=0.3)
+    # Zusätzliche flache Subplots unten links (Zeitbereich) und unten rechts (Frequenzbereich)
+    # Position: [links, unten, Breite, Höhe] als Anteil der Figure
+    ax_time_flat = fig.add_axes([0.06, 0.04, 0.40, 0.11])  # unten links (halb so hoch)
+    ax_freq_flat = fig.add_axes([0.54, 0.04, 0.40, 0.11])  # unten rechts (halb so hoch)
 
+    # Zeitbereich: Originalsignal (flach)
+    ax_time_flat.plot(t_time, signal_orig, color='b', linewidth=1.2)
+    ax_time_flat.set_title('Zeitbereich', fontsize=10)
+    ax_time_flat.set_xlabel('Zeit [s]', fontsize=9)
+    ax_time_flat.set_ylabel('Amplitude', fontsize=9)
+    ax_time_flat.tick_params(axis='both', labelsize=8)
+    ax_time_flat.grid(True, alpha=0.2)
+
+    # Frequenzbereich: Amplitudenspektrum (flach)
+    # Balkenbreite aus Abtastrate und Signallänge berechnen
+    n = len(signal_orig)
+    dt = t_time[1] - t_time[0]  # Zeitauflösung
+    fs = 1.0 / dt  # Abtastrate
+    freq_resolution = fs / n  # Frequenzauflösung aus Abtastrate und Länge
+    bar_width = freq_resolution * 0.8
+    ax_freq_flat.bar(frequencies, magnitude, width=bar_width, color='r', edgecolor='crimson', alpha=0.7)
+    ax_freq_flat.set_title('Frequenzbereich', fontsize=10)
+    ax_freq_flat.set_xlabel('Frequenz [Hz]', fontsize=9)
+    ax_freq_flat.set_ylabel('Magnitude', fontsize=9)
+    ax_freq_flat.tick_params(axis='both', labelsize=8)
+    ax_freq_flat.grid(True, alpha=0.2)
+    # X-Achse unten rechts: exakt wie oben von 0 bis freq_max
+    freq_max_plot = fmax if fmax is not None else frequencies.max()
+    ax_freq_flat.set_xlim(0, freq_max_plot)
+    
+    # 1. WAND: Zeitbereich-Signal an der Stirnseite (bei Y=0, also niedrigste Frequenz)
+    # Zeigt das Originalsignal als 2D-Projektion - BLAU
+    freq_max_plot = fmax if fmax is not None else frequencies.max()
+    x_wall_time = t_time
+    y_wall_time = np.zeros_like(t_time)  # Bei Y=0 (vorne)
+    z_wall_time = signal_orig
+    ax.plot(x_wall_time, y_wall_time, z_wall_time, 'b-', linewidth=2.5, alpha=0.9, 
+            label='Zeitbereich (Original)')
+    # Fülle die Fläche unter dem Signal
+    ax.plot(x_wall_time, y_wall_time, np.zeros_like(z_wall_time), 'b-', linewidth=0.5, alpha=0.3)
+    for i in range(0, len(x_wall_time), max(1, len(x_wall_time)//50)):
+        ax.plot([x_wall_time[i], x_wall_time[i]], [0, 0], 
+                [0, z_wall_time[i]], 'b-', linewidth=0.5, alpha=0.2)
+    
+    # 2. WAND: Frequenzbereich-Spektrum an der Stirnseite (bei X=0, Anfang der Zeit)
+    # Zeigt das Amplitudenspektrum als dünne 2D-Balken - ROT
+    
+    # Frequenzspektrum als dünne vertikale Linien (2D-Balken)
+    for freq, mag in zip(frequencies, magnitude):
+        ax.plot([0, 0], [freq, freq], [0, mag], color='r', linewidth=2.5, alpha=0.9, solid_capstyle='butt')
+    
+    # Label für Legende (nur einmal)
+    ax.plot([0], [frequencies[0]], [magnitude[0]], 'r-', linewidth=2.5, alpha=0.9,
+            label='Frequenzbereich (FFT)')
+
+    
+    # Für jede Frequenz das entsprechende Signal plotten (im 3D-Raum) - SCHWARZ
+    for i, (freq, amp, ph) in enumerate(zip(frequencies, magnitude, phase)):
+        # Signal berechnen: A * cos(2πft + φ)
+        signal = amp * np.cos(2 * np.pi * freq * t + ph)
+        
+        # Bei konstanter Frequenz (Y-Achse) plotten, Amplitude auf Z-Achse
+        y = np.full_like(t, freq)
+        
+        ax.plot(t, y, signal, color='k', linewidth=1.2, alpha=0.6)
+    
+    # Hauptfrequenz bestimmen (für Info-Text)
+    main_freq_idx = np.argmax(magnitude)
+    main_freq = frequencies[main_freq_idx]
+    
     # Achsenbeschriftungen
     ax.set_xlabel('Zeit [s]', fontsize=11, labelpad=10)
     ax.set_ylabel('Frequenz [Hz]', fontsize=11, labelpad=10)
-    ax.set_zlabel('Amplitude / Magnitude', fontsize=11, labelpad=10)
+    ax.set_zlabel('Amplitude', fontsize=11, labelpad=25)
     
-    # Ansichtswinkel: von vorne-links oben
-    ax.view_init(elev=25, azim=120)
+    # Frequenz-Achse (Y) von 0 bis fmax/max skalieren (umgekehrt)
+    freq_max = fmax if fmax is not None else frequencies.max()
+    ax.set_ylim(freq_max, 0)  # Umgekehrte Richtung: max -> 0
+    
+    # Ansichtswinkel optimieren
+    ax.view_init(elev=20, azim=135)
+    
+    # Legende
+    ax.legend(loc='upper left', fontsize=9)
     
     # Titel
     if title:
         ax.set_title(title, fontsize=14, fontweight='bold', pad=20)
     else:
         filename = Path(time_file).stem
-        ax.set_title(f'FFT-Transformation: {filename}', fontsize=14, fontweight='bold', pad=20)
+        ax.set_title(f'Frequenzkomponenten im Zeitbereich: {filename}', 
+                     fontsize=14, fontweight='bold', pad=20)
     
-    plt.tight_layout()
+    # Layout anpassen: unten Platz für die flachen Subplots lassen
+    fig.subplots_adjust(bottom=0.10, top=0.93)
     
     # Speichern
     save_dir = os.path.dirname(save_path)
     if save_dir and not os.path.exists(save_dir):
         os.makedirs(save_dir, exist_ok=True)
-    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    
+    plt.savefig(save_path, dpi=300)  # bbox_inches='tight' entfernt, damit Z-Label sichtbar bleibt
     print(f"3D-Plot gespeichert: {save_path}")
+    print(f"  Frequenzbereich: {frequencies.min():.2f} - {frequencies.max():.2f} Hz")
+    print(f"  Zeitbereich: 0 - {t_max_val:.2f} s")
+    print(f"  Hauptfrequenz: {main_freq:.2f} Hz (Originalsignal hier gezeichnet)")
 
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(
-        description="Plottet FFT-Transformation in 3D-Perspektive.",
+        description="Plottet Frequenzkomponenten als 3D-Signale im Zeitbereich.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     p.add_argument(
@@ -217,10 +313,14 @@ def parse_args() -> argparse.Namespace:
         help="Dateiname ohne Endung (z.B. 'sample'). Sucht in measurements/ und fft/",
     )
     p.add_argument("--title", help="Titel des Plots")
-    p.add_argument("--fmax", type=float, help="Maximale Frequenz in Hz für FFT-Plot")
-    p.add_argument("--tmax", type=float, help="Maximale Zeit in Sekunden für Zeitbereich")
-    p.add_argument("--figsize", nargs=2, type=int, default=[14, 10], help="Größe der Figur (Breite Höhe)")
-    p.add_argument("--save", dest="save_path", help="Dateiname für Plot (ohne Pfad, wird in plot_fft/ gespeichert)")
+    p.add_argument("--fmax", type=float, help="Maximale Frequenz in Hz")
+    p.add_argument("--tmax", type=float, help="Maximale Zeit in Sekunden")
+    p.add_argument("--min-magnitude", type=float, default=0.01, 
+                   help="Minimale Amplitude für sichtbare Komponenten")
+    p.add_argument("--figsize", nargs=2, type=int, default=[14, 10], 
+                   help="Größe der Figur (Breite Höhe)")
+    p.add_argument("--save", dest="save_path", 
+                   help="Dateiname für Plot (ohne Pfad, wird in plot_fft_3d/ gespeichert)")
     p.add_argument("--delimiter", default=",", help="CSV-Trennzeichen")
     return p.parse_args()
 
@@ -248,19 +348,20 @@ def main() -> None:
     # Speicherpfad verarbeiten
     if args.save_path:
         if not os.path.dirname(args.save_path):
-            save_path = os.path.join("plot_fft", args.save_path)
+            save_path = os.path.join("plot_fft_3d", args.save_path)
         else:
             save_path = args.save_path
     else:
-        save_path = os.path.join("plot_fft", f"{args.name}_3d.png")
+        save_path = os.path.join("plot_fft_3d", f"{args.name}_3d.png")
     
     try:
-        plot_3d_transformation(
+        plot_frequency_components_3d(
             time_file=time_file,
             fft_file=fft_file,
             title=args.title,
             fmax=args.fmax,
             tmax=args.tmax,
+            min_magnitude=args.min_magnitude,
             figsize=tuple(args.figsize),
             save_path=save_path,
             delimiter=args.delimiter,
