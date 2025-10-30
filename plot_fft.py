@@ -168,22 +168,29 @@ def plot_combined(
     fmax: Optional[float] = None,
     log_scale: bool = False,
     show_phase: bool = False,
+    phase_threshold: Optional[float] = None,
     figsize: Tuple[int, int] = (16, 6),
     save_path: Optional[str] = None,
     delimiter: str = ",",
 ) -> None:
     """
-    Plottet Zeit- und Frequenzbereich nebeneinander.
-    """
-    # Anzahl Subplots bestimmen
-    n_plots = 3 if show_phase else 2
-    fig, axes = plt.subplots(1, n_plots, figsize=(figsize[0], figsize[1]))
+    Plottet Zeit- und Frequenzbereich nebeneinander (oder untereinander bei Phase).
     
-    if n_plots == 2:
+    Args:
+        phase_threshold: Minimale Amplitude, ab der Phase angezeigt wird (z.B. 0.1)
+    """
+    # Layout: wenn Phase angezeigt wird, 2x2 Grid (links Zeitbereich, rechts Amplitude und Phase untereinander)
+    if show_phase:
+        fig = plt.figure(figsize=figsize)
+        gs = fig.add_gridspec(2, 2, hspace=0.4, wspace=0.3)  # Mehr vertikaler Abstand (hspace)
+        ax_time = fig.add_subplot(gs[:, 0])  # Links: beide Zeilen
+        ax_freq = fig.add_subplot(gs[0, 1])  # Rechts oben: Amplitude
+        ax_phase = fig.add_subplot(gs[1, 1]) # Rechts unten: Phase
+    else:
+        # Ohne Phase: nur 2 Plots nebeneinander
+        fig, axes = plt.subplots(1, 2, figsize=(figsize[0], figsize[1]))
         ax_time, ax_freq = axes
         ax_phase = None
-    else:
-        ax_time, ax_freq, ax_phase = axes
     
     # === Zeitbereich (links) ===
     try:
@@ -252,12 +259,35 @@ def plot_combined(
         
         # Phase plotten (rechts) falls gewünscht
         if show_phase and ax_phase is not None:
-            ax_phase.plot(frequencies, np.rad2deg(phase), linewidth=1.5, color="crimson")
+            # Phase-Threshold anwenden: nur Phasenwerte anzeigen, wenn Amplitude über Schwellwert
+            phase_to_plot = np.rad2deg(phase).copy()
+            frequencies_to_plot = frequencies.copy()
+            
+            if phase_threshold is not None:
+                # Maske erstellen: nur Phasen anzeigen, wo Magnitude >= threshold
+                mask_above_threshold = magnitude >= phase_threshold
+                phase_to_plot = phase_to_plot[mask_above_threshold]
+                frequencies_to_plot = frequencies_to_plot[mask_above_threshold]
+            
+            # Als Punkte darstellen statt Balken
+            ax_phase.plot(frequencies_to_plot, phase_to_plot, 'o', color="crimson", markersize=4, alpha=0.7)
             ax_phase.set_title("Frequenzbereich (Phase)", fontsize=12, fontweight="bold")
             ax_phase.set_xlabel("Frequenz [Hz]", fontsize=10)
             ax_phase.set_ylabel("Phase [°]", fontsize=10)
             ax_phase.grid(True, alpha=0.3, linestyle="--")
-            ax_phase.axhline(y=0, color="black", linestyle="--", linewidth=0.8, alpha=0.5)
+            
+            # X-Achse des Phasendiagramms an Amplitudendiagramm anpassen
+            ax_phase.set_xlim(ax_freq.get_xlim())
+            
+            # Y-Achse auf -100° bis 100° setzen
+            ax_phase.set_ylim(-100, 100)
+            
+            # Y-Ticks bei -90°, -45°, 0°, 45°, 90° setzen
+            ax_phase.set_yticks([-90, -45, 0, 45, 90])
+            
+            # Gestrichelte Linien bei -90°, -45°, 0°, 45°, 90°
+            for angle in [-90, -45, 0, 45, 90]:
+                ax_phase.axhline(y=angle, color="gray", linestyle="--", linewidth=0.8, alpha=0.5)
         
     except Exception as e:
         print(f"Fehler beim Laden der FFT-Daten: {e}")
@@ -297,7 +327,9 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--fmin", type=float, help="Minimale Frequenz in Hz für FFT-Plot")
     p.add_argument("--fmax", type=float, help="Maximale Frequenz in Hz für FFT-Plot")
     p.add_argument("--log", action="store_true", help="Logarithmische Skala (dB) für Magnitude")
-    p.add_argument("--phase", action="store_true", help="Phase als dritten Subplot anzeigen")
+    p.add_argument("--phase", action="store_true", default=True, help="Phase als dritten Subplot anzeigen (Standard: aktiv)")
+    p.add_argument("--no-phase", dest="phase", action="store_false", help="Phase NICHT anzeigen")
+    p.add_argument("--phase-threshold", type=float, help="Minimale Amplitude, ab der Phase angezeigt wird (z.B. 0.1)")
     p.add_argument("--figsize", nargs=2, type=int, default=[16, 6], help="Größe der Figur (Breite Höhe)")
     p.add_argument("--save", dest="save_path", help="Dateiname für Plot (ohne Pfad, wird in plot_fft/ gespeichert)")
     p.add_argument("--delimiter", default=",", help="CSV-Trennzeichen")
@@ -369,6 +401,7 @@ def main() -> None:
             fmax=args.fmax,
             log_scale=args.log,
             show_phase=args.phase,
+            phase_threshold=args.phase_threshold,
             figsize=tuple(args.figsize),
             save_path=save_path,
             delimiter=args.delimiter,

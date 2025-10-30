@@ -18,3 +18,5 @@ python .\generate_measurements.py signal_mixed --func "0.5*sin(2*pi*0.2*t) + 0.2
 python plot_measurements.py signal_mixed --title "Überlagerte Signale mit Rauschem"
 python fft_measurements.py signal_mixed
 python plot_fft.py signal_mixed --fmax 5
+
+python .\plot_fft.py signal_mixed --fmax 20 --phase-threshold 0.1 --save mixed_aligned_threshold.png
