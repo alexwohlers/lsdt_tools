@@ -1,3 +1,11 @@
+
+python generate_measurements.py bode_demo --func "sin(2*pi*5*t)" --func "0.8*sin(2*pi*5*t + pi/4)" --fs 10000 --duration 2
+python plot_measurements.py bode_demo --title "Bode-Demo"
+python fft_measurements.py bode_demo 
+python plot_fft.py bode_demo --fmax 5 --title "FFT: Bode-Demo"
+python plot_fft_3d.py bode_demo --fmax 5
+python generate_report.py bode_demo
+
 python generate_measurements.py sinus_1hz --func "sin(2*pi*1*t)" --fs 10000 --duration 5
 python plot_measurements.py sinus_1hz --title "Sinus 1Hz"
 python fft_measurements.py sinus_1hz 
@@ -395,3 +403,4 @@ python fft_measurements.py very_noisy
 python plot_fft.py very_noisy --fmax 20 --title "FFT: Stark verrauscht"
 python plot_fft_3d.py very_noisy --fmax 20 --min-magnitude 0.1
 python generate_report.py very_noisy
+
