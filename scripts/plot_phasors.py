@@ -112,14 +112,14 @@ def main():
     parser = argparse.ArgumentParser(description="Phasor-Plot für überlagerte Sinus-Komponenten")
     parser.add_argument('--freqs', nargs='+', type=float, required=True, help='Frequenzen in Hz')
     parser.add_argument('--amps', nargs='+', type=float, required=True, help='Amplituden')
-    parser.add_argument('--phases', nargs='+', type=float, default=None, help='Phasen in Radiant')
+    parser.add_argument('--phases', nargs='+', type=float, default=None, help='Phasen in Grad')
     parser.add_argument('--duration', type=float, default=1.0, help='Dauer in Sekunden')
     parser.add_argument('--fs', type=int, default=1000, help='Abtastrate in Hz')
     parser.add_argument('--save', type=str, default=None, help='Dateistamm für PNG/GIF/Video-Ausgabe')
     parser.add_argument('--title', type=str, default=None, help='Diagrammtitel')
     parser.add_argument('--video', action='store_true', help='Animation als MP4-Video speichern (statt GIF)')
     args = parser.parse_args()
-    phases = [float(p) for p in args.phases] if args.phases else [0.0]*len(args.freqs)
+    phases = [float(p) * 3.141592653589793 / 180.0 for p in args.phases] if args.phases else [0.0]*len(args.freqs)
     phasor_plot(args.freqs, args.amps, phases, args.duration, args.fs, args.save, args.title, as_video=args.video)
 
 if __name__ == "__main__":

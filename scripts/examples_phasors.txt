@@ -1,5 +1,7 @@
 python plot_phasors.py --freqs 5 --amps 1 --phases 0 --duration 1 --fs 1000 --save einzel_frequenz --title "Einzelne Frequenz"
 
+python plot_phasors.py --freqs 5 --amps 1 --phases -90 --duration 1 --fs 1000 --save einzel_frequenz_phasenverschiebung --title "Einzelne Frequenz Phasenverschiebung"
+
 python plot_phasors.py --freqs 3 8 --amps 1 1 --phases 0 0 --duration 2 --fs 1000 --save zwei_frequenzen --title "Zwei Frequenzen"
 
 python plot_phasors.py --freqs 5 12 --amps 1 0.5 --phases 0 0 --duration 1 --fs 1000 --save unterschiedliche_amplituden --title "Unterschiedliche Amplituden"
