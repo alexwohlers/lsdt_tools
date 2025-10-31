@@ -192,15 +192,15 @@ def main() -> None:
     args = parse_args()
     
     # Ausgabepfad bestimmen
+    import os
     if args.out:
         # Explizit angegebener Pfad
         out_path = args.out
     else:
         # Automatisch aus Name erstellen
-        import os
         # Sicherstellen dass .csv Endung hinzugefügt wird
         filename = args.name if args.name.endswith(".csv") else f"{args.name}.csv"
-    out_path = os.path.join("..", "data", "measurements", filename)
+        out_path = os.path.join("..", "data", "measurements", filename)
 
     try:
         func_list = args.func if args.func else ["sin(2*pi*1*t)"]
@@ -230,9 +230,7 @@ def main() -> None:
     )
 
 
-if __name__ == "__main__":
-
-    def generate_csv_multi(
+def generate_csv_multi(
         expr_list: list[str],
         fs: float,
         duration: Optional[float],
@@ -310,3 +308,7 @@ if __name__ == "__main__":
                     row.append(base_time.timestamp() + t)
                 row.extend(values)
                 writer.writerow(row)
+
+
+if __name__ == "__main__":
+    main()
